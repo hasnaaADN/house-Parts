@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>House Parts Game</title>
+<style>
+:root{--bg:#c6e3ff;--ink:#1d2b3a;--tray:#fff6da;--card:#ffffff;--yel:#ffd60a;--roof:#3d8fd9;--ok:#1f9d55;--bad:#d64545;
+--bed:#dcdcfb;--bath:#c8f1e6;--liv:#ffe4de;--kit:#c3e2fb;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14263a;--ink:#eef4fb;--tray:#3a3320;--card:#22364d;--bed:#3a3a66;--bath:#1f4a42;--liv:#5a3a38;--kit:#1f4363}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Patrick Hand","Comic Sans MS","Segoe Print",cursive,sans-serif}
+body{padding:14px;min-height:100%}
+h1{margin:0;font-size:clamp(28px,5vw,46px);color:var(--roof);letter-spacing:.5px;font-family:"Bebas Neue",Impact,"Arial Narrow",sans-serif;font-weight:400}
+.sub{margin:2px 0 10px;font-size:18px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px}
+.score{background:var(--yel);color:#222;padding:4px 14px;border-radius:20px;font-size:18px}
+.wrap{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:14px;align-items:start}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+#tray{background:var(--tray);border:3px solid var(--ink);border-radius:16px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:120px}
+.item{width:84px;height:84px;background:var(--card);border:2px solid var(--ink);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;touch-action:none;user-select:none;font-size:38px;line-height:1}
+.item small{font-size:12px;margin-top:3px;display:none}
+.item.done small{display:block}
+.item.done{cursor:default;border-color:var(--ok);width:70px;height:70px;font-size:30px}
+.item.shake{animation:sh .4s}
+.item svg{width:58px;height:58px}.item.done svg{width:38px;height:38px}#pe svg{width:96px;height:96px}
+@keyframes sh{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.ghost{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-50%) scale(1.15);opacity:.92;box-shadow:0 8px 18px rgba(0,0,0,.3)}
+#house{border:3px solid var(--ink);border-radius:6px 6px 12px 12px;background:var(--card);overflow:hidden}
+.roof{height:46px;background:repeating-linear-gradient(100deg,var(--roof) 0 26px,#2f7cc4 26px 30px);border-bottom:3px solid var(--ink)}
+.rooms{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px}
+.room{border:3px solid var(--ink);border-radius:8px;min-height:190px;position:relative;padding:44px 6px 6px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;transition:outline .1s}
+.room.over{outline:5px dashed var(--yel);outline-offset:-5px}
+#bedroom{background:var(--bed)}#bathroom{background:var(--bath)}#living{background:var(--liv)}#kitchen{background:var(--kit)}
+.label{position:absolute;top:0;left:50%;transform:translateX(-50%);background:var(--yel);color:#222;padding:2px 12px;border:2px solid var(--ink);border-top:0;border-radius:0 0 10px 10px;font-size:20px;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.label button{border:0;background:none;cursor:pointer;font-size:18px;padding:0}
+#panel{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:4px solid var(--yel);padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));text-align:center;display:none;z-index:60;box-shadow:0 -10px 30px rgba(0,0,0,.25)}
+#panel.show{display:block}
+#pe{font-size:56px;line-height:1}
+#pw{font-size:36px;margin:4px 0;color:var(--roof)}
+#pm{min-height:26px;font-size:19px;margin:6px 0}
+.btn{font:inherit;font-size:19px;border:2px solid var(--ink);background:var(--yel);color:#222;border-radius:24px;padding:8px 20px;margin:4px;cursor:pointer}
+.btn.alt{background:var(--card);color:var(--ink)}
+.btn:focus-visible,.label button:focus-visible{outline:3px solid var(--roof);outline-offset:2px}
+.btn.rec{background:var(--bad);color:#fff}
+#win{display:none;text-align:center;font-size:26px;margin:10px 0;color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>House parts game</h1><p class="sub">Glisse chaque objet dans la bonne pièce, puis dis son nom en anglais.</p></div>
+  <div class="score" id="score">0 / 15</div>
+</div>
+<div id="win">Bravo ! Toute la maison est rangée 🎉 <button class="btn" onclick="location.reload()">Rejouer</button></div>
+<div class="wrap">
+  <div id="tray" aria-label="Objets à ranger"></div>
+  <div id="house">
+    <div class="roof"></div>
+    <div class="rooms" id="rooms"></div>
+  </div>
+</div>
+<div id="panel" role="dialog" aria-live="polite">
+  <div id="pe"></div><div id="pw"></div>
+  <div id="pm"></div>
+  <div>
+    <button class="btn alt" id="bl">🔊 Écouter</button>
+    <button class="btn" id="bm">🎤 Parler</button>
+    <button class="btn alt" id="bf" style="display:none">J’ai prononcé le mot</button>
+    <button class="btn alt" id="bs" style="display:none">Valider quand même</button>
+  </div>
+</div>
+<script>
+var ROOMS=[["bedroom","bedroom"],["bathroom","bathroom"],["living","living room"],["kitchen","kitchen"]];
+var ITEMS=[
+["bed","bed","🛏️",["bedroom"]],["drawers","chest of drawers","🗄️",["bedroom"],["drawers","drawer"]],
+["wardrobe","wardrobe","🚪",["bedroom"],["closet"]],["mirror","mirror","🪞",["bedroom","bathroom"]],
+["toilet","toilet","🚽",["bathroom"]],["shower","shower","🚿",["bathroom"]],["sink","sink","🚰",["bathroom"]],
+["armchair","armchair","🛋️",["living"],["arm chair"]],["tv","TV","📺",["living"],["television","tv","tv"]],
+["lamp","lamp","💡",["living"]],["curtains","curtains","🪟",["living"],["curtain"]],
+["fridge","fridge","🧊",["kitchen"],["refrigerator","fridge"]],["cooker","cooker","🍳",["kitchen"],["stove","cooker"]],
+["hood","extractor hood","💨",["kitchen"],["hood","extractor"]],["dishwasher","dishwasher","🍽️",["kitchen"],["dish washer"]]
+];
+function S(c){return '<svg viewBox="0 0 64 64" fill="none" stroke="#2b2b2b" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">'+c+'</svg>'}
+var W='#e8b86d';
+var ART={
+bed:S('<rect x="8" y="14" width="48" height="16" rx="3" fill="'+W+'"/><rect x="8" y="30" width="48" height="16" rx="2" fill="#7fc4c8"/><rect x="14" y="23" width="18" height="8" rx="3" fill="#fff"/><path d="M8 38 L18 34 L28 38 L38 34 L48 38 L56 35"/><path d="M8 46 V54 M56 46 V54"/>'),
+drawers:S('<rect x="12" y="8" width="40" height="46" rx="3" fill="'+W+'"/><path d="M12 24 H52 M12 39 H52 M26 16 H38 M26 32 H38 M26 47 H38"/><path d="M16 54 V59 M48 54 V59"/>'),
+wardrobe:S('<rect x="10" y="5" width="44" height="52" rx="3" fill="'+W+'"/><path d="M32 5 V57"/><circle cx="27" cy="32" r="1.8"/><circle cx="37" cy="32" r="1.8"/><path d="M14 57 V61 M50 57 V61"/>'),
+mirror:S('<ellipse cx="32" cy="28" rx="17" ry="22" fill="#bfe6f2"/><path d="M22 20 C24 15 28 12 32 11"/><path d="M32 50 V57 M22 58 H42"/>'),
+toilet:S('<rect x="20" y="5" width="24" height="15" rx="3" fill="#fff"/><path d="M14 24 H50 C50 40 42 46 32 46 C22 46 14 40 14 24Z" fill="#fff"/><path d="M26 46 L24 58 H40 L38 46" fill="#fff"/>'),
+shower:S('<rect x="12" y="5" width="40" height="54" rx="3" fill="#e6f3fa"/><path d="M32 5 V11"/><ellipse cx="32" cy="15" rx="9" ry="4" fill="#bbb"/><path d="M25 24 V30 M32 26 V36 M39 24 V30 M27 40 V46 M37 40 V46" stroke="#3d8fd9"/>'),
+sink:S('<path d="M10 22 H54 C54 36 44 41 32 41 C20 41 10 36 10 22Z" fill="#fff"/><path d="M32 22 V10 H40 V14"/><path d="M26 41 L24 58 H40 L38 41" fill="#fff"/>'),
+armchair:S('<rect x="14" y="10" width="36" height="30" rx="10" fill="#9b5fa5"/><rect x="6" y="26" width="14" height="26" rx="6" fill="#8a4f94"/><rect x="44" y="26" width="14" height="26" rx="6" fill="#8a4f94"/><rect x="16" y="34" width="32" height="16" rx="4" fill="#b073bb"/><path d="M12 52 V58 M52 52 V58"/>'),
+tv:S('<rect x="8" y="42" width="48" height="14" rx="2" fill="'+W+'"/><path d="M26 49 H38"/><rect x="9" y="8" width="46" height="30" rx="3" fill="#3a3f47"/><path d="M32 38 V42 M16 16 L24 14" stroke="#9aa3ad"/>'),
+lamp:S('<path d="M21 6 H43 L47 24 H17Z" fill="#f4d27a"/><path d="M32 24 V54"/><ellipse cx="32" cy="56" rx="11" ry="3.5" fill="#ccc"/>'),
+curtains:S('<path d="M5 9 H59"/><rect x="20" y="14" width="24" height="34" fill="#8ecbff"/><path d="M32 14 V48 M20 31 H44"/><path d="M8 9 H24 V54 H8Z" fill="#e9e9f2"/><path d="M40 9 H56 V54 H40Z" fill="#e9e9f2"/><path d="M13 12 V52 M19 12 V52 M45 12 V52 M51 12 V52" stroke-width="1.4"/>'),
+fridge:S('<rect x="16" y="4" width="32" height="56" rx="3" fill="#ececec"/><path d="M16 22 H48 M22 10 V17 M22 28 V40"/>'),
+cooker:S('<rect x="10" y="8" width="44" height="50" rx="3" fill="#f2f2f2"/><circle cx="19" cy="15" r="2.2"/><circle cx="27" cy="15" r="2.2"/><circle cx="37" cy="15" r="2.2"/><circle cx="45" cy="15" r="2.2"/><path d="M10 23 H54 M17 28 H47"/><rect x="16" y="32" width="32" height="20" rx="2" fill="#3a3f47"/>'),
+hood:S('<rect x="25" y="5" width="14" height="20" fill="#ddd"/><path d="M10 44 L21 25 H43 L54 44Z" fill="#c9ced4"/><path d="M20 50 V54 M32 50 V56 M44 50 V54" stroke="#f4c542"/>'),
+dishwasher:S('<rect x="9" y="8" width="46" height="50" rx="3" fill="#eee"/><path d="M9 20 H55 M19 14 H29"/><circle cx="44" cy="14" r="1.8"/><rect x="15" y="26" width="34" height="26" rx="2" fill="#fff"/><path d="M15 39 H49 M23 30 V35 M32 30 V35 M41 30 V35 M23 43 V48 M32 43 V48 M41 43 V48" stroke-width="1.6"/>')
+};
+var tray=document.getElementById("tray"),roomsEl=document.getElementById("rooms");
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,done=0,cur=null,rec=null;
+function say(t){try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang="en-US";u.rate=.85;speechSynthesis.speak(u)}catch(e){}}
+ROOMS.forEach(function(r){
+  var d=document.createElement("div");d.className="room";d.id=r[0];
+  d.innerHTML='<div class="label">'+r[1]+' <button aria-label="Écouter '+r[1]+'">🔊</button></div>';
+  d.querySelector("button").onclick=function(){say(r[1])};
+  roomsEl.appendChild(d);
+});
+ITEMS.sort(function(){return Math.random()-.5}).forEach(function(it){
+  var e=document.createElement("div");e.className="item";e.dataset.id=it[0];
+  e.innerHTML=ART[it[0]]+"<small>"+it[1]+"</small>";e.setAttribute("aria-label",it[1]);
+  e.addEventListener("pointerdown",function(ev){start(ev,e,it)});
+  tray.appendChild(e);
+});
+function start(ev,e,it){
+  if(e.classList.contains("done")||cur)return;
+  ev.preventDefault();
+  var g=e.cloneNode(true);g.classList.add("ghost");document.body.appendChild(g);
+  e.style.opacity=.3;
+  function mv(x,y){g.style.left=x+"px";g.style.top=y+"px";
+    document.querySelectorAll(".room").forEach(function(r){r.classList.remove("over")});
+    var r=roomAt(x,y);if(r)r.classList.add("over")}
+  mv(ev.clientX,ev.clientY);
+  function move(m){mv(m.clientX,m.clientY)}
+  function up(m){
+    document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",up);
+    var r=roomAt(m.clientX,m.clientY);g.remove();e.style.opacity=1;
+    document.querySelectorAll(".room").forEach(function(x){x.classList.remove("over")});
+    if(!r)return;
+    if(it[3].indexOf(r.id)>-1){r.appendChild(e);ask(e,it)}
+    else{e.classList.add("shake");setTimeout(function(){e.classList.remove("shake")},400);say("Try again")}
+  }
+  document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);document.addEventListener("pointercancel",up);
+}
+function roomAt(x,y){var els=document.elementsFromPoint(x,y);for(var i=0;i<els.length;i++){if(els[i].classList&&els[i].classList.contains("room"))return els[i]}return null}
+var panel=document.getElementById("panel"),pm=document.getElementById("pm"),bm=document.getElementById("bm"),bf=document.getElementById("bf"),bs=document.getElementById("bs");
+function ask(e,it){
+  cur={e:e,it:it,tries:0};
+  document.getElementById("pe").innerHTML=ART[it[0]];
+  document.getElementById("pw").textContent=it[1];
+  pm.textContent="Bien placé ! Dis le mot en anglais.";pm.style.color="";
+  bs.style.display="none";bf.style.display=SR?"none":"";bm.style.display=SR?"":"none";
+  panel.classList.add("show");say(it[1]);
+}
+document.getElementById("bl").onclick=function(){if(cur)say(cur.it[1])};
+function ok(){
+  cur.e.classList.add("done");pm.textContent="Parfait ! ✅";pm.style.color="var(--ok)";
+  done++;document.getElementById("score").textContent=done+" / "+ITEMS.length;
+  var c=cur;cur=null;
+  setTimeout(function(){panel.classList.remove("show");if(done===ITEMS.length)document.getElementById("win").style.display="block"},900);
+}
+bf.onclick=function(){if(cur)ok()};bs.onclick=function(){if(cur)ok()};
+function norm(s){return s.toLowerCase().replace(/[^a-z ]/g,"").trim()}
+bm.onclick=function(){
+  if(!cur)return;
+  if(rec){try{rec.stop()}catch(e){}return}
+  rec=new SR();rec.lang="en-US";rec.maxAlternatives=6;rec.interimResults=false;
+  bm.classList.add("rec");bm.textContent="⏹ J’écoute…";pm.style.color="";pm.textContent="Parle maintenant…";
+  var heard=[],got=false;
+  rec.onresult=function(ev){for(var i=0;i<ev.results[0].length;i++)heard.push(norm(ev.results[0][i].transcript));got=true};
+  rec.onerror=function(ev){if(ev.error==="not-allowed"||ev.error==="service-not-allowed"){pm.textContent="Micro bloqué : autorise-le, ou utilise le bouton ci-dessous.";bf.style.display="";}};
+  rec.onend=function(){
+    rec=null;bm.classList.remove("rec");bm.textContent="🎤 Parler";
+    if(!cur)return;
+    if(!got){if(pm.textContent==="Parle maintenant…")pm.textContent="Je n’ai rien entendu. Réessaie.";return}
+    var words=[norm(cur.it[1])].concat((cur.it[4]||[]).map(norm));
+    var hit=heard.some(function(h){return words.some(function(w){return h.indexOf(w)>-1})});
+    if(hit)ok();
+    else{cur.tries++;pm.style.color="var(--bad)";pm.textContent="J’ai entendu « "+(heard[0]||"…")+" ». Réessaie !";
+      if(cur.tries>=2)bs.style.display=""}
+  };
+  try{rec.start()}catch(e){rec=null;bm.classList.remove("rec");bm.textContent="🎤 Parler";bf.style.display=""}
+};
+</script>
+</body>
+</html>
